@@ -9,13 +9,12 @@
 #import "UIViewController+QMUI.h"
 #import "QMUINavigationController.h"
 #import <objc/runtime.h>
-#import "QMUICommonDefines.h"
 
 @implementation UIViewController (QMUI)
 
 void qmui_loadViewIfNeeded (id current_self, SEL current_cmd) {
     // 主动调用 self.view，从而触发 loadView，以模拟 iOS 9.0 以下的系统 loadViewIfNeeded 行为
-    QMUILog(@"%@", ((UIViewController *)current_self).view);
+//    QMUILog(@"%@", ((UIViewController *)current_self).view);
 }
 
 + (void)load {
@@ -25,7 +24,7 @@ void qmui_loadViewIfNeeded (id current_self, SEL current_cmd) {
         if (![[UIViewController class] instancesRespondToSelector:@selector(loadViewIfNeeded)]) {
             Class metaclass = [self class];
             BOOL success = class_addMethod(metaclass, @selector(loadViewIfNeeded), (IMP)qmui_loadViewIfNeeded, "v@:");
-            QMUILog(@"%@ %s, success = %@", NSStringFromClass([self class]), __func__, StringFromBOOL(success));
+//            QMUILog(@"%@ %s, success = %@", NSStringFromClass([self class]), __func__, StringFromBOOL(success));
         }
     });
 }
