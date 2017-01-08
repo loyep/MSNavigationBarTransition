@@ -29,6 +29,7 @@
 
 // By default this is white, it is related to issue with transparent navigationBar
 - (UIColor *)km_containerViewBackgroundColor;
+
 @end
 
 @interface UIViewController (KMNavigationBarTransition)

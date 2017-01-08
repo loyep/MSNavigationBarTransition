@@ -70,6 +70,8 @@ typedef void (^_FDViewControllerWillAppearInjectBlock)(UIViewController *viewCon
     
     if (self.fd_willAppearInjectBlock) {
         self.fd_willAppearInjectBlock(self, animated);
+    } else if (self.navigationController && self.navigationController.viewControllers.count == 1) {
+        [self.navigationController setNavigationBarHidden:self.fd_prefersNavigationBarHidden animated:animated];
     }
 }
 

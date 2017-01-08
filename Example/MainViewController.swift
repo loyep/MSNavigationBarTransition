@@ -23,7 +23,7 @@ class MainViewController: UITableViewController {
     
     var currentNavigationBarData: NavigationBarData!
     var nextNavigationBarData: NavigationBarData!
-    var fd_prefersNavigationBarHidden : Bool = false;
+    var fd_prefersNavigationBarHidden : Bool! = false;
     
     
     @IBOutlet weak var nextNavigationBarTintColorText: UILabel!
