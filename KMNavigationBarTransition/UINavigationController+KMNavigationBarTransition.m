@@ -22,11 +22,9 @@
 //  THE SOFTWARE.
 
 #import "UINavigationController+KMNavigationBarTransition.h"
-#import "KMWeakObjectContainer.h"
 #import <objc/runtime.h>
 
-void KMSwizzleMethod(Class cls, SEL originalSelector, SEL swizzledSelector)
-{
+void MSSwizzleMethod(Class cls, SEL originalSelector, SEL swizzledSelector) {
     Method originalMethod = class_getInstanceMethod(cls, originalSelector);
     Method swizzledMethod = class_getInstanceMethod(cls, swizzledSelector);
     
@@ -46,288 +44,197 @@ void KMSwizzleMethod(Class cls, SEL originalSelector, SEL swizzledSelector)
     }
 }
 
-typedef void (^_FDViewControllerWillAppearInjectBlock)(UIViewController *viewController, BOOL animated);
+@interface _MSFullscreenPopGestureRecognizerDelegate : UIPercentDrivenInteractiveTransition <UIGestureRecognizerDelegate, UINavigationControllerDelegate>
 
-@interface UIViewController (KMNavigationBarPrivate)
-
-@property (nonatomic, copy) _FDViewControllerWillAppearInjectBlock fd_willAppearInjectBlock;
-
-@property (nonatomic, assign) BOOL km_prefersNavigationBarBackgroundViewHidden;
+@property (nonatomic, weak) UINavigationController *navigationController;
 
 @end
 
-@implementation UIViewController (KMNavigationBarPrivate)
+@implementation _MSFullscreenPopGestureRecognizerDelegate
+
+- (BOOL)gestureRecognizerShouldBegin:(UIPanGestureRecognizer *)gestureRecognizer
+{
+    // Ignore when no view controller is pushed into the navigation stack.
+    if (self.navigationController.viewControllers.count <= 1) {
+        return false;
+    }
+    
+    // Disable when the active view controller doesn't allow interactive pop.
+    UIViewController *topViewController = self.navigationController.viewControllers.lastObject;
+    if (topViewController.ms_interactivePopDisabled) {
+        return false;
+    }
+    
+    // Ignore pan gesture when the navigation controller is currently in transition.
+    if ([[self.navigationController valueForKey:@"_isTransitioning"] boolValue]) {
+        return false;
+    }
+    
+    // Prevent calling the handler when the gesture begins in an opposite direction.
+    CGPoint translation = [gestureRecognizer translationInView:gestureRecognizer.view];
+    if (translation.x <= 0) {
+        return false;
+    }
+    
+    return true;
+}
+
+@end
+
+//@interface UINavigationBar (MSNavigationBarPrivate)
+//
+//@end
+
+typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewController, BOOL animated);
+
+@interface UIViewController (MSNavigationBarPrivate)
+
+@property (nonatomic, copy) _MSViewControllerWillAppearInjectBlock ms_willAppearInjectBlock;
+
+@property (nonatomic, assign) BOOL ms_prefersNavigationBarBackgroundViewHidden;
+
+@property (nonatomic, strong) UINavigationBar *ms_transitionNavigationBar;
+
+- (void)ms_addTransitionNavigationBarIfNeeded;
+
+@end
+
+@implementation UIViewController (MSNavigationBarPrivate)
 
 + (void)load {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        KMSwizzleMethod([self class], @selector(viewWillAppear:), @selector(fd_viewWillAppear:));
+        MSSwizzleMethod([self class],
+                        @selector(viewWillAppear:),
+                        @selector(ms_viewWillAppear:));
+        
+        MSSwizzleMethod([self class],
+                        @selector(viewWillLayoutSubviews),
+                        @selector(ms_viewWillLayoutSubviews));
+        
+        MSSwizzleMethod([self class],
+                        @selector(viewDidAppear:),
+                        @selector(ms_viewDidAppear:));
     });
 }
 
-- (void)fd_viewWillAppear:(BOOL)animated {
-    [self fd_viewWillAppear:animated];
+- (BOOL)ms_prefersNavigationBarBackgroundViewHidden {
+    return [[self ms_navigationBarBackgroundView] isHidden];
+}
+
+- (void)setMs_prefersNavigationBarBackgroundViewHidden:(BOOL)hidden {
+    [[self ms_navigationBarBackgroundView] setHidden:hidden];
+}
+
+- (void)ms_viewWillAppear:(BOOL)animated {
+    [self ms_viewWillAppear:animated];
     
-    if (self.fd_willAppearInjectBlock) {
-        self.fd_willAppearInjectBlock(self, animated);
+    if (self.ms_willAppearInjectBlock) {
+        self.ms_willAppearInjectBlock(self, animated);
     } else if (self.navigationController && self.navigationController.viewControllers.count == 1) {
-        [self.navigationController setNavigationBarHidden:self.fd_prefersNavigationBarHidden animated:animated];
+        [self.navigationController setNavigationBarHidden:self.ms_prefersNavigationBarHidden animated:animated];
     }
 }
 
-- (_FDViewControllerWillAppearInjectBlock)fd_willAppearInjectBlock {
+- (_MSViewControllerWillAppearInjectBlock)ms_willAppearInjectBlock {
     return objc_getAssociatedObject(self, _cmd);
 }
 
-- (void)setFd_willAppearInjectBlock:(_FDViewControllerWillAppearInjectBlock)block {
-    objc_setAssociatedObject(self, @selector(fd_willAppearInjectBlock), block, OBJC_ASSOCIATION_COPY_NONATOMIC);
+- (void)setMs_willAppearInjectBlock:(_MSViewControllerWillAppearInjectBlock)block {
+    objc_setAssociatedObject(self, @selector(ms_willAppearInjectBlock), block, OBJC_ASSOCIATION_COPY_NONATOMIC);
 }
 
-- (BOOL)km_prefersNavigationBarBackgroundViewHidden {
-    return [objc_getAssociatedObject(self, _cmd) boolValue];
-}
-
-- (void)setKm_prefersNavigationBarBackgroundViewHidden:(BOOL)hidden {
-    [[self.navigationController.navigationBar valueForKey:@"_backgroundView"]
-     setHidden:hidden];
-    objc_setAssociatedObject(self, @selector(km_prefersNavigationBarBackgroundViewHidden), @(hidden), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
-
-@end
-
-@implementation UINavigationController (KMNavigationBarTransition)
-
-+ (void)load {
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        KMSwizzleMethod([self class],
-                        @selector(pushViewController:animated:),
-                        @selector(km_pushViewController:animated:));
+- (void)ms_viewDidAppear:(BOOL)animated {
+    if (self.ms_transitionNavigationBar) {
+        self.navigationController.navigationBar.barTintColor = self.ms_transitionNavigationBar.barTintColor;
+        [self.navigationController.navigationBar setBackgroundImage:[self.ms_transitionNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault] forBarMetrics:UIBarMetricsDefault];
+        [self.navigationController.navigationBar setShadowImage:self.ms_transitionNavigationBar.shadowImage];
         
-        KMSwizzleMethod([self class],
-                        @selector(popViewControllerAnimated:),
-                        @selector(km_popViewControllerAnimated:));
-        
-        KMSwizzleMethod([self class],
-                        @selector(popToViewController:animated:),
-                        @selector(km_popToViewController:animated:));
-        
-        KMSwizzleMethod([self class],
-                        @selector(popToRootViewControllerAnimated:),
-                        @selector(km_popToRootViewControllerAnimated:));
-        
-        KMSwizzleMethod([self class],
-                        @selector(setViewControllers:animated:),
-                        @selector(km_setViewControllers:animated:));
-    });
-}
-
-- (UIColor *)km_containerViewBackgroundColor {
-    return [UIColor whiteColor];
-}
-
-- (void)km_pushViewController:(UIViewController *)viewController animated:(BOOL)animated {
-    UIViewController *disappearingViewController = self.viewControllers.lastObject;
-    if (!disappearingViewController) {
-        return [self km_pushViewController:viewController animated:animated];
-    }
-    
-    __weak typeof(self) weakSelf = self;
-    _FDViewControllerWillAppearInjectBlock block = ^(UIViewController *viewController, BOOL animated) {
-        __strong typeof(weakSelf) strongSelf = weakSelf;
-        if (strongSelf) {
-            [strongSelf setNavigationBarHidden:viewController.fd_prefersNavigationBarHidden animated:animated];
-        }
-    };
-    
-    // Setup will appear inject block to appearing view controller.
-    // Setup disappearing view controller as well, because not every view controller is added into
-    // stack by pushing, maybe by "-setViewControllers:".
-    viewController.fd_willAppearInjectBlock = block;
-    if (disappearingViewController && !disappearingViewController.fd_willAppearInjectBlock) {
-        disappearingViewController.fd_willAppearInjectBlock = block;
-    }
-    
-    if (!self.km_transitionContextToViewController || !disappearingViewController.km_transitionNavigationBar) {
-        [disappearingViewController km_addTransitionNavigationBarIfNeeded];
-    }
-    if (animated) {
-        self.km_transitionContextToViewController = viewController;
-        if (disappearingViewController.km_transitionNavigationBar) {
-            disappearingViewController.km_prefersNavigationBarBackgroundViewHidden = YES;
-        }
-    }
-    return [self km_pushViewController:viewController animated:animated];
-}
-
-- (UIViewController *)km_popViewControllerAnimated:(BOOL)animated {
-    if (self.viewControllers.count < 2) {
-        return [self km_popViewControllerAnimated:animated];
-    }
-    UIViewController *disappearingViewController = self.viewControllers.lastObject;
-    [disappearingViewController km_addTransitionNavigationBarIfNeeded];
-    UIViewController *appearingViewController = self.viewControllers[self.viewControllers.count - 2];
-    if (appearingViewController.km_transitionNavigationBar) {
-        UINavigationBar *appearingNavigationBar = appearingViewController.km_transitionNavigationBar;
-        self.navigationBar.barTintColor = appearingNavigationBar.barTintColor;
-        [self.navigationBar setBackgroundImage:[appearingNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault] forBarMetrics:UIBarMetricsDefault];
-        self.navigationBar.shadowImage = appearingNavigationBar.shadowImage;
-    }
-    if (animated) {
-        disappearingViewController.km_prefersNavigationBarBackgroundViewHidden = YES;
-    }
-    return [self km_popViewControllerAnimated:animated];
-}
-
-- (NSArray<UIViewController *> *)km_popToViewController:(UIViewController *)viewController animated:(BOOL)animated {
-    if (![self.viewControllers containsObject:viewController] || self.viewControllers.count < 2) {
-        return [self km_popToViewController:viewController animated:animated];
-    }
-    UIViewController *disappearingViewController = self.viewControllers.lastObject;
-    [disappearingViewController km_addTransitionNavigationBarIfNeeded];
-    if (viewController.km_transitionNavigationBar) {
-        UINavigationBar *appearingNavigationBar = viewController.km_transitionNavigationBar;
-        self.navigationBar.barTintColor = appearingNavigationBar.barTintColor;
-        [self.navigationBar setBackgroundImage:[appearingNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault] forBarMetrics:UIBarMetricsDefault];
-        self.navigationBar.shadowImage = appearingNavigationBar.shadowImage;
-    }
-    if (animated) {
-        disappearingViewController.km_prefersNavigationBarBackgroundViewHidden = YES;
-    }
-    return [self km_popToViewController:viewController animated:animated];
-}
-
-- (NSArray<UIViewController *> *)km_popToRootViewControllerAnimated:(BOOL)animated {
-    if (self.viewControllers.count < 2) {
-        return [self km_popToRootViewControllerAnimated:animated];
-    }
-    UIViewController *disappearingViewController = self.viewControllers.lastObject;
-    [disappearingViewController km_addTransitionNavigationBarIfNeeded];
-    UIViewController *rootViewController = self.viewControllers.firstObject;
-    if (rootViewController.km_transitionNavigationBar) {
-        UINavigationBar *appearingNavigationBar = rootViewController.km_transitionNavigationBar;
-        self.navigationBar.barTintColor = appearingNavigationBar.barTintColor;
-        [self.navigationBar setBackgroundImage:[appearingNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault] forBarMetrics:UIBarMetricsDefault];
-        self.navigationBar.shadowImage = appearingNavigationBar.shadowImage;
-    }
-    if (animated) {
-        disappearingViewController.km_prefersNavigationBarBackgroundViewHidden = YES;
-    }
-    return [self km_popToRootViewControllerAnimated:animated];
-}
-
-- (void)km_setViewControllers:(NSArray<UIViewController *> *)viewControllers animated:(BOOL)animated {
-    UIViewController *disappearingViewController = self.viewControllers.lastObject;
-    if (animated && disappearingViewController && ![disappearingViewController isEqual:viewControllers.lastObject]) {
-        [disappearingViewController km_addTransitionNavigationBarIfNeeded];
-        if (disappearingViewController.km_transitionNavigationBar) {
-            disappearingViewController.km_prefersNavigationBarBackgroundViewHidden = YES;
-        }
-    }
-    return [self km_setViewControllers:viewControllers animated:animated];
-}
-
-- (UIViewController *)km_transitionContextToViewController {
-    return km_objc_getAssociatedWeakObject(self, _cmd);
-}
-
-- (void)setKm_transitionContextToViewController:(UIViewController *)viewController {
-    km_objc_setAssociatedWeakObject(self, @selector(km_transitionContextToViewController), viewController);
-}
-
-@end
-
-
-@implementation UIViewController (KMNavigationBarTransition)
-
-+ (void)load {
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        KMSwizzleMethod([self class],
-                        @selector(viewWillLayoutSubviews),
-                        @selector(km_viewWillLayoutSubviews));
-        
-        KMSwizzleMethod([self class],
-                        @selector(viewDidAppear:),
-                        @selector(km_viewDidAppear:));
-    });
-}
-
-- (void)km_viewDidAppear:(BOOL)animated {
-    if (self.km_transitionNavigationBar) {
-        self.navigationController.navigationBar.barTintColor = self.km_transitionNavigationBar.barTintColor;
-        [self.navigationController.navigationBar setBackgroundImage:[self.km_transitionNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault] forBarMetrics:UIBarMetricsDefault];
-        [self.navigationController.navigationBar setShadowImage:self.km_transitionNavigationBar.shadowImage];
-        
-        UIViewController *transitionViewController = self.navigationController.km_transitionContextToViewController;
+        UIViewController *transitionViewController = self.navigationController.ms_transitionContextToViewController;
         if (!transitionViewController || [transitionViewController isEqual:self]) {
-            [self.km_transitionNavigationBar removeFromSuperview];
-            self.km_transitionNavigationBar = nil;
-            self.navigationController.km_transitionContextToViewController = nil;
+            [self.ms_transitionNavigationBar removeFromSuperview];
+            self.ms_transitionNavigationBar = nil;
+            self.navigationController.ms_transitionContextToViewController = nil;
         }
     }
-    self.km_prefersNavigationBarBackgroundViewHidden = NO;
-    [self km_viewDidAppear:animated];
+    self.ms_prefersNavigationBarBackgroundViewHidden = NO;
+    [self ms_viewDidAppear:animated];
 }
 
-- (void)km_viewWillLayoutSubviews {
+- (void)ms_viewWillLayoutSubviews {
     id<UIViewControllerTransitionCoordinator> tc = self.transitionCoordinator;
     UIViewController *fromViewController = [tc viewControllerForKey:UITransitionContextFromViewControllerKey];
     UIViewController *toViewController = [tc viewControllerForKey:UITransitionContextToViewControllerKey];
     
     if ([self isEqual:self.navigationController.viewControllers.lastObject] && [toViewController isEqual:self]) {
         if (self.navigationController.navigationBar.translucent) {
-            [tc containerView].backgroundColor = [self.navigationController km_containerViewBackgroundColor];
+            [tc containerView].backgroundColor = [self.navigationController ms_containerViewBackgroundColor];
         }
         fromViewController.view.clipsToBounds = NO;
         toViewController.view.clipsToBounds = NO;
-        if (!self.km_transitionNavigationBar) {
-            [self km_addTransitionNavigationBarIfNeeded];
+        if (!self.ms_transitionNavigationBar) {
+            [self ms_addTransitionNavigationBarIfNeeded];
             
-            self.km_prefersNavigationBarBackgroundViewHidden = YES;
+            self.ms_prefersNavigationBarBackgroundViewHidden = true;
         }
-        [self km_resizeTransitionNavigationBarFrame];
+        [self ms_resizeTransitionNavigationBarFrame];
     }
-    if (self.km_transitionNavigationBar) {
-        [self.view bringSubviewToFront:self.km_transitionNavigationBar];
+    if (self.ms_transitionNavigationBar) {
+        [self.view bringSubviewToFront:self.ms_transitionNavigationBar];
     }
-    [self km_viewWillLayoutSubviews];
+    [self ms_viewWillLayoutSubviews];
 }
 
-- (void)km_resizeTransitionNavigationBarFrame {
+- (void)ms_resizeTransitionNavigationBarFrame {
     if (!self.view.window) {
         return;
     }
-    UIView *backgroundView = [self.navigationController.navigationBar valueForKey:@"_backgroundView"];
+    
+    UIView *backgroundView = [self ms_navigationBarBackgroundView];
     CGRect rect = [backgroundView.superview convertRect:backgroundView.frame toView:self.view];
-    self.km_transitionNavigationBar.frame = rect;
+    self.ms_transitionNavigationBar.frame = rect;
 }
 
-- (void)km_addTransitionNavigationBarIfNeeded {
+- (UIView *)ms_navigationBarBackgroundView {
+    return (UIView *)[self.navigationController.navigationBar valueForKey:@"_backgroundView"];
+}
+
+- (void)ms_addTransitionNavigationBarIfNeeded {
+    
+    if (!self.navigationController.ms_viewControllerBasedNavigationBarAppearanceEnabled) {
+        return;
+    }
+    
     if (!self.isViewLoaded || !self.view.window) {
         return;
     }
+    
     if (!self.navigationController.navigationBar) {
         return;
     }
-    [self km_adjustScrollViewContentOffsetIfNeeded];
+    
+    [self ms_adjustScrollViewContentOffsetIfNeeded];
     UINavigationBar *bar = [[UINavigationBar alloc] init];
     bar.barStyle = self.navigationController.navigationBar.barStyle;
     if (bar.translucent != self.navigationController.navigationBar.translucent) {
         bar.translucent = self.navigationController.navigationBar.translucent;
     }
+    
     bar.barTintColor = self.navigationController.navigationBar.barTintColor;
     [bar setBackgroundImage:[self.navigationController.navigationBar backgroundImageForBarMetrics:UIBarMetricsDefault] forBarMetrics:UIBarMetricsDefault];
     bar.shadowImage = self.navigationController.navigationBar.shadowImage;
-    [self.km_transitionNavigationBar removeFromSuperview];
-    self.km_transitionNavigationBar = bar;
-    [self km_resizeTransitionNavigationBarFrame];
+    
+    [self.ms_transitionNavigationBar removeFromSuperview];
+    self.ms_transitionNavigationBar = bar;
+    
+    [self ms_resizeTransitionNavigationBarFrame];
+    
     if (!self.navigationController.navigationBarHidden && !self.navigationController.navigationBar.hidden) {
-        [self.view addSubview:self.km_transitionNavigationBar];
+        [self.view addSubview:self.ms_transitionNavigationBar];
     }
 }
 
-- (void)km_adjustScrollViewContentOffsetIfNeeded {
+- (void)ms_adjustScrollViewContentOffsetIfNeeded {
     if ([self.view isKindOfClass:[UIScrollView class]]) {
         UIScrollView *scrollView = (UIScrollView *)self.view;
         const CGFloat topContentOffsetY = -scrollView.contentInset.top;
@@ -340,26 +247,256 @@ typedef void (^_FDViewControllerWillAppearInjectBlock)(UIViewController *viewCon
         if (adjustedContentOffset.y < topContentOffsetY) {
             adjustedContentOffset.y = topContentOffsetY;
         }
-        [scrollView setContentOffset:adjustedContentOffset animated:NO];
+        [scrollView setContentOffset:adjustedContentOffset animated:false];
     }
 }
 
-- (UINavigationBar *)km_transitionNavigationBar {
+- (UINavigationBar *)ms_transitionNavigationBar {
     return objc_getAssociatedObject(self, _cmd);
 }
 
-- (void)setKm_transitionNavigationBar:(UINavigationBar *)navigationBar {
-    objc_setAssociatedObject(self, @selector(km_transitionNavigationBar), navigationBar, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+- (void)setMs_transitionNavigationBar:(UINavigationBar *)navigationBar {
+    objc_setAssociatedObject(self, @selector(ms_transitionNavigationBar), navigationBar, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
-- (BOOL)fd_prefersNavigationBarHidden
-{
+@end
+
+@implementation UINavigationController (MSNavigationBarTransition)
+
+- (BOOL)ms_viewControllerBasedNavigationBarAppearanceEnabled {
+    NSNumber *number = objc_getAssociatedObject(self, _cmd);
+    if (number) {
+        return number.boolValue;
+    }
+    self.ms_viewControllerBasedNavigationBarAppearanceEnabled = true;
+    return true;
+}
+
+- (UIPanGestureRecognizer *)ms_fullscreenPopGestureRecognizer {
+    UIPanGestureRecognizer *panGestureRecognizer = objc_getAssociatedObject(self, _cmd);
+    
+    if (!panGestureRecognizer) {
+        panGestureRecognizer = [[UIPanGestureRecognizer alloc] init];
+        panGestureRecognizer.maximumNumberOfTouches = 1;
+        
+        objc_setAssociatedObject(self, _cmd, panGestureRecognizer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    return panGestureRecognizer;
+}
+
+- (void)setMs_viewControllerBasedNavigationBarAppearanceEnabled:(BOOL)enabled {
+    SEL key = @selector(ms_viewControllerBasedNavigationBarAppearanceEnabled);
+    objc_setAssociatedObject(self, key, @(enabled), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
++ (void)load {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        MSSwizzleMethod([self class],
+                        @selector(pushViewController:animated:),
+                        @selector(ms_pushViewController:animated:));
+        
+        MSSwizzleMethod([self class],
+                        @selector(popViewControllerAnimated:),
+                        @selector(ms_popViewControllerAnimated:));
+        
+        MSSwizzleMethod([self class],
+                        @selector(popToViewController:animated:),
+                        @selector(ms_popToViewController:animated:));
+        
+        MSSwizzleMethod([self class],
+                        @selector(popToRootViewControllerAnimated:),
+                        @selector(ms_popToRootViewControllerAnimated:));
+        
+        MSSwizzleMethod([self class],
+                        @selector(setViewControllers:animated:),
+                        @selector(ms_setViewControllers:animated:));
+    });
+}
+
+- (_MSFullscreenPopGestureRecognizerDelegate *)ms_popGestureRecognizerDelegate {
+    _MSFullscreenPopGestureRecognizerDelegate *delegate = objc_getAssociatedObject(self, _cmd);
+    
+    if (!delegate) {
+        delegate = [[_MSFullscreenPopGestureRecognizerDelegate alloc] init];
+        delegate.navigationController = self;
+        self.delegate = delegate;
+        
+        objc_setAssociatedObject(self, _cmd, delegate, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    return delegate;
+}
+
+
+- (void)ms_pushViewController:(UIViewController *)viewController animated:(BOOL)animated {
+    if (![self.interactivePopGestureRecognizer.view.gestureRecognizers containsObject:self.ms_fullscreenPopGestureRecognizer]) {
+        
+        // Add our own gesture recognizer to where the onboard screen edge pan gesture recognizer is attached to.
+        [self.interactivePopGestureRecognizer.view addGestureRecognizer:self.ms_fullscreenPopGestureRecognizer];
+        
+        // Forward the gesture events to the private handler of the onboard gesture recognizer.
+        NSArray *internalTargets = [self.interactivePopGestureRecognizer valueForKey:@"targets"];
+        id internalTarget = [internalTargets.firstObject valueForKey:@"target"];
+        SEL internalAction = NSSelectorFromString(@"handleNavigationTransition:");
+        self.ms_fullscreenPopGestureRecognizer.delegate = self.ms_popGestureRecognizerDelegate;
+        [self.ms_fullscreenPopGestureRecognizer addTarget:internalTarget action:internalAction];
+        
+        // Disable the onboard gesture recognizer.
+        self.interactivePopGestureRecognizer.enabled = false;
+    }
+    
+    UIViewController *disappearingViewController = self.viewControllers.lastObject;
+    if (!disappearingViewController) {
+        return [self ms_pushViewController:viewController animated:animated];
+    }
+    
+    __weak typeof(self) weakSelf = self;
+    __weak typeof(disappearingViewController) weakDisappear = disappearingViewController;
+    _MSViewControllerWillAppearInjectBlock block = ^(UIViewController *viewController, BOOL animated) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (strongSelf) {
+            [strongSelf setNavigationBarHidden:viewController.ms_prefersNavigationBarHidden animated:animated];
+//            [[viewController ms_navigationBarBackgroundView] setHidden:viewController.ms_prefersNavigationBarHidden];
+            __strong typeof(weakDisappear) strongDisappear = weakDisappear;
+            if (strongDisappear.ms_transitionNavigationBar == viewController.ms_transitionNavigationBar || !(strongDisappear.ms_transitionNavigationBar && viewController.ms_transitionNavigationBar && [UIImagePNGRepresentation([viewController.ms_transitionNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault]) isEqualToData:UIImagePNGRepresentation([strongDisappear.ms_transitionNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault])])) {
+                [[viewController ms_navigationBarBackgroundView] setHidden:viewController.ms_prefersNavigationBarHidden];
+            }
+        }
+    };
+    
+    // Setup will appear inject block to appearing view controller.
+    // Setup disappearing view controller as well, because not every view controller is added into
+    // stack by pushing, maybe by "-setViewControllers:".
+    viewController.ms_willAppearInjectBlock = block;
+    if (disappearingViewController && !disappearingViewController.ms_willAppearInjectBlock) {
+        disappearingViewController.ms_willAppearInjectBlock = block;
+    }
+    
+    if (!self.ms_transitionContextToViewController || !disappearingViewController.ms_transitionNavigationBar) {
+        [disappearingViewController ms_addTransitionNavigationBarIfNeeded];
+    }
+    
+    if (animated) {
+        self.ms_transitionContextToViewController = viewController;
+        if (disappearingViewController.ms_transitionNavigationBar) {
+            disappearingViewController.ms_prefersNavigationBarBackgroundViewHidden = true;
+        }
+    }
+    return [self ms_pushViewController:viewController animated:animated];
+}
+
+- (UIViewController *)ms_popViewControllerAnimated:(BOOL)animated {
+    if (self.viewControllers.count < 2) {
+        return [self ms_popViewControllerAnimated:animated];
+    }
+    UIViewController *disappearingViewController = self.viewControllers.lastObject;
+    [disappearingViewController ms_addTransitionNavigationBarIfNeeded];
+    UIViewController *appearingViewController = self.viewControllers[self.viewControllers.count - 2];
+    if (appearingViewController.ms_transitionNavigationBar) {
+        UINavigationBar *appearingNavigationBar = appearingViewController.ms_transitionNavigationBar;
+        self.navigationBar.barTintColor = appearingNavigationBar.barTintColor;
+        [self.navigationBar setBackgroundImage:[appearingNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault] forBarMetrics:UIBarMetricsDefault];
+        self.navigationBar.shadowImage = appearingNavigationBar.shadowImage;
+    }
+    
+    if (animated) {
+        disappearingViewController.ms_prefersNavigationBarBackgroundViewHidden = true;
+    }
+    
+    return [self ms_popViewControllerAnimated:animated];
+}
+
+- (NSArray<UIViewController *> *)ms_popToViewController:(UIViewController *)viewController animated:(BOOL)animated {
+    if (![self.viewControllers containsObject:viewController] || self.viewControllers.count < 2) {
+        return [self ms_popToViewController:viewController animated:animated];
+    }
+    
+    UIViewController *disappearingViewController = self.viewControllers.lastObject;
+    [disappearingViewController ms_addTransitionNavigationBarIfNeeded];
+    
+    if (viewController.ms_transitionNavigationBar) {
+        UINavigationBar *appearingNavigationBar = viewController.ms_transitionNavigationBar;
+        self.navigationBar.barTintColor = appearingNavigationBar.barTintColor;
+        [self.navigationBar setBackgroundImage:[appearingNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault] forBarMetrics:UIBarMetricsDefault];
+        self.navigationBar.shadowImage = appearingNavigationBar.shadowImage;
+    }
+    
+    if (animated) {
+        disappearingViewController.ms_prefersNavigationBarBackgroundViewHidden = true;
+    }
+    
+    return [self ms_popToViewController:viewController animated:animated];
+}
+
+- (NSArray<UIViewController *> *)ms_popToRootViewControllerAnimated:(BOOL)animated {
+    if (self.viewControllers.count < 2) {
+        return [self ms_popToRootViewControllerAnimated:animated];
+    }
+    UIViewController *disappearingViewController = self.viewControllers.lastObject;
+    [disappearingViewController ms_addTransitionNavigationBarIfNeeded];
+    UIViewController *rootViewController = self.viewControllers.firstObject;
+    if (rootViewController.ms_transitionNavigationBar) {
+        UINavigationBar *appearingNavigationBar = rootViewController.ms_transitionNavigationBar;
+        self.navigationBar.barTintColor = appearingNavigationBar.barTintColor;
+        [self.navigationBar setBackgroundImage:[appearingNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault] forBarMetrics:UIBarMetricsDefault];
+        self.navigationBar.shadowImage = appearingNavigationBar.shadowImage;
+    }
+    if (animated) {
+        disappearingViewController.ms_prefersNavigationBarBackgroundViewHidden = true;
+    }
+    
+    return [self ms_popToRootViewControllerAnimated:animated];
+}
+
+- (void)ms_setViewControllers:(NSArray<UIViewController *> *)viewControllers animated:(BOOL)animated {
+    UIViewController *disappearingViewController = self.viewControllers.lastObject;
+    if (animated && disappearingViewController && ![disappearingViewController isEqual:viewControllers.lastObject]) {
+        [disappearingViewController ms_addTransitionNavigationBarIfNeeded];
+        if (disappearingViewController.ms_transitionNavigationBar) {
+            disappearingViewController.ms_prefersNavigationBarBackgroundViewHidden = true;
+        }
+    }
+    return [self ms_setViewControllers:viewControllers animated:animated];
+}
+
+- (UIViewController *)ms_transitionContextToViewController {
+    return objc_getAssociatedObject(self, _cmd);
+}
+
+- (void)setMs_transitionContextToViewController:(UIViewController *)viewController {
+    objc_setAssociatedObject(self, @selector(ms_transitionContextToViewController), viewController, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+@end
+
+
+@implementation UIViewController (MSNavigationBarTransition)
+
+- (void)setMs_interactivePopDisabled:(BOOL)disabled {
+    objc_setAssociatedObject(self, @selector(ms_interactivePopDisabled), @(disabled), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+- (BOOL)ms_interactivePopDisabled {
     return [objc_getAssociatedObject(self, _cmd) boolValue];
 }
 
-- (void)setFd_prefersNavigationBarHidden:(BOOL)hidden
-{
-    objc_setAssociatedObject(self, @selector(fd_prefersNavigationBarHidden), @(hidden), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+// By default this is white, it is related to issue with transparent navigationBar
+- (UIColor *)ms_containerViewBackgroundColor {
+    return [UIColor whiteColor];
+}
+
+- (BOOL)ms_prefersNavigationBarHidden {
+    NSNumber *hidden = objc_getAssociatedObject(self, _cmd);
+    if (hidden) {
+        return [hidden boolValue];
+    }
+    self.ms_prefersNavigationBarHidden = false;
+    return false;
+}
+
+- (void)setMs_prefersNavigationBarHidden:(BOOL)hidden {
+    self.ms_prefersNavigationBarBackgroundViewHidden = hidden;
+    objc_setAssociatedObject(self, @selector(ms_prefersNavigationBarHidden), @(hidden), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 @end

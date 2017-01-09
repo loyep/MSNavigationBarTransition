@@ -17,7 +17,6 @@
 		CDA372971C39093E00E39A6D /* NavigationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDA372921C39093E00E39A6D /* NavigationController.swift */; };
 		CDA372981C39093E00E39A6D /* SettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDA372931C39093E00E39A6D /* SettingsViewController.swift */; };
 		CDA372991C39093E00E39A6D /* UIImage+Color.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDA372941C39093E00E39A6D /* UIImage+Color.swift */; };
-		CDC1BA0E1CE1DFE8006BE1B6 /* KMWeakObjectContainer.m in Sources */ = {isa = PBXBuildFile; fileRef = CDC1BA0D1CE1DFE8006BE1B6 /* KMWeakObjectContainer.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,10 +31,9 @@
 		CDA372921C39093E00E39A6D /* NavigationController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = NavigationController.swift; path = Example/NavigationController.swift; sourceTree = SOURCE_ROOT; };
 		CDA372931C39093E00E39A6D /* SettingsViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SettingsViewController.swift; path = Example/SettingsViewController.swift; sourceTree = SOURCE_ROOT; };
 		CDA372941C39093E00E39A6D /* UIImage+Color.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "UIImage+Color.swift"; path = "Example/UIImage+Color.swift"; sourceTree = SOURCE_ROOT; };
-		CDC1BA0C1CE1DFE8006BE1B6 /* KMWeakObjectContainer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KMWeakObjectContainer.h; sourceTree = "<group>"; };
-		CDC1BA0D1CE1DFE8006BE1B6 /* KMWeakObjectContainer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KMWeakObjectContainer.m; sourceTree = "<group>"; };
 		CDDFA1F31C3921BD00BFBA1B /* UINavigationController+KMNavigationBarTransition.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "UINavigationController+KMNavigationBarTransition.h"; sourceTree = "<group>"; };
 		CDDFA1F41C3921BD00BFBA1B /* UINavigationController+KMNavigationBarTransition.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "UINavigationController+KMNavigationBarTransition.m"; sourceTree = "<group>"; };
+		FD199F8C1E23681100221EA5 /* bridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bridge.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -52,7 +50,7 @@
 		CDA372661C3907CE00E39A6D = {
 			isa = PBXGroup;
 			children = (
-				CDDFA1F01C3921BD00BFBA1B /* KMNavigationBarTransition */,
+				CDDFA1F01C3921BD00BFBA1B /* MSNavigationBarTransition */,
 				CDA372711C3907CE00E39A6D /* Example */,
 				CDA372701C3907CE00E39A6D /* Products */,
 			);
@@ -71,6 +69,7 @@
 			children = (
 				CDA372861C39089200E39A6D /* Main.storyboard */,
 				CDA372901C39093E00E39A6D /* MainViewController.swift */,
+				FD199F8C1E23681100221EA5 /* bridge.h */,
 				CDA372931C39093E00E39A6D /* SettingsViewController.swift */,
 				CDA372921C39093E00E39A6D /* NavigationController.swift */,
 				CDA3729A1C39094600E39A6D /* Model */,
@@ -100,14 +99,13 @@
 			name = Extension;
 			sourceTree = "<group>";
 		};
-		CDDFA1F01C3921BD00BFBA1B /* KMNavigationBarTransition */ = {
+		CDDFA1F01C3921BD00BFBA1B /* MSNavigationBarTransition */ = {
 			isa = PBXGroup;
 			children = (
 				CDDFA1F31C3921BD00BFBA1B /* UINavigationController+KMNavigationBarTransition.h */,
 				CDDFA1F41C3921BD00BFBA1B /* UINavigationController+KMNavigationBarTransition.m */,
-				CDC1BA0C1CE1DFE8006BE1B6 /* KMWeakObjectContainer.h */,
-				CDC1BA0D1CE1DFE8006BE1B6 /* KMWeakObjectContainer.m */,
 			);
+			name = MSNavigationBarTransition;
 			path = KMNavigationBarTransition;
 			sourceTree = "<group>";
 		};
@@ -188,7 +186,6 @@
 				CDA372971C39093E00E39A6D /* NavigationController.swift in Sources */,
 				CDA372951C39093E00E39A6D /* MainViewController.swift in Sources */,
 				CDA372981C39093E00E39A6D /* SettingsViewController.swift in Sources */,
-				CDC1BA0E1CE1DFE8006BE1B6 /* KMWeakObjectContainer.m in Sources */,
 				CDA372961C39093E00E39A6D /* NavigationBarData.swift in Sources */,
 				CDA372991C39093E00E39A6D /* UIImage+Color.swift in Sources */,
 			);
@@ -311,8 +308,9 @@
 				INFOPLIST_FILE = "$(SRCROOT)/Example/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.mo.KMNavigationBarTransition;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eony.MSNavigation;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "$(SRCROOT)/KMNavigationBarTransition/bridge.h";
 				SWIFT_VERSION = 3.0;
 			};
 			name = Debug;
@@ -324,8 +322,9 @@
 				INFOPLIST_FILE = "$(SRCROOT)/Example/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.mo.KMNavigationBarTransition;
+				PRODUCT_BUNDLE_IDENTIFIER = com.eony.MSNavigation;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "$(SRCROOT)/KMNavigationBarTransition/bridge.h";
 				SWIFT_VERSION = 3.0;
 			};
 			name = Release;

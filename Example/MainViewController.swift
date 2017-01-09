@@ -23,7 +23,6 @@ class MainViewController: UITableViewController {
     
     var currentNavigationBarData: NavigationBarData!
     var nextNavigationBarData: NavigationBarData!
-    var fd_prefersNavigationBarHidden : Bool! = false;
     
     
     @IBOutlet weak var nextNavigationBarTintColorText: UILabel!
@@ -36,13 +35,14 @@ class MainViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         if currentNavigationBarData == nil {
+//            self.fd_prefersNavigationBarHidden = true;
             currentNavigationBarData = NavigationBarData()
         }
         nextNavigationBarData = currentNavigationBarData
         
         nextNavigationBarTintColorText.text = nextNavigationBarData.barTintColor.rawValue
         nextNavigatioBarBackgroundImageColorText.text = nextNavigationBarData.backgroundImageColor.rawValue
-        nextNavigationBarPrefersHiddenSwitch.isOn = self.fd_prefersNavigationBarHidden
+        nextNavigationBarPrefersHiddenSwitch.isOn = self.ms_prefersNavigationBarHidden
         nextNavigationBarPrefersShadowImageHiddenSwitch.isOn = nextNavigationBarData.prefersShadowImageHidden
         
         navigationController?.navigationBar.barTintColor = currentNavigationBarData.barTintColor.toUIColor
@@ -148,7 +148,7 @@ extension MainViewController {
                     return
                 }
                 viewController.currentNavigationBarData = nextNavigationBarData
-                viewController.fd_prefersNavigationBarHidden = nextNavigationBarData.prefersHidden
+                viewController.ms_prefersNavigationBarHidden = nextNavigationBarData.prefersHidden
                 break
             default:
                 break
