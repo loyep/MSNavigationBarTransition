@@ -29,6 +29,7 @@ class MainViewController: UITableViewController {
     @IBOutlet weak var nextNavigatioBarBackgroundImageColorText: UILabel!
     @IBOutlet weak var nextNavigationBarPrefersHiddenSwitch: UISwitch!
     @IBOutlet weak var nextNavigationBarPrefersShadowImageHiddenSwitch: UISwitch!
+    @IBOutlet weak var nextNavigationBarFontColorText: UILabel!
     
     // MARK: View Life Cycle
     
@@ -44,10 +45,14 @@ class MainViewController: UITableViewController {
         nextNavigatioBarBackgroundImageColorText.text = nextNavigationBarData.backgroundImageColor.rawValue
         nextNavigationBarPrefersHiddenSwitch.isOn = self.ms_prefersNavigationBarHidden
         nextNavigationBarPrefersShadowImageHiddenSwitch.isOn = nextNavigationBarData.prefersShadowImageHidden
+        nextNavigationBarFontColorText.text = nextNavigationBarData.barFontColor.rawValue
         
         navigationController?.navigationBar.barTintColor = currentNavigationBarData.barTintColor.toUIColor
         navigationController?.navigationBar.setBackgroundImage(currentNavigationBarData.backgroundImageColor.toUIImage, for: .default)
         navigationController?.navigationBar.shadowImage = (currentNavigationBarData.prefersShadowImageHidden) ? UIImage() : nil
+        navigationController?.navigationBar.titleTextAttributes = {[
+            NSForegroundColorAttributeName: currentNavigationBarData.barFontColor.toUIColor!,
+            ]}()
         
         title = "Title " + "\(navigationController!.viewControllers.count)"
     }
@@ -93,7 +98,7 @@ extension  MainViewController {
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         switch (indexPath.section, indexPath.row) {
-        case (0, 0), (0, 1):
+        case (0, 0), (0, 1), (0, 2):
             performSegue(withIdentifier: Constants.Segue.SetStyleIdentifier, sender: self)
         default:
             break
@@ -135,6 +140,13 @@ extension MainViewController {
                     block = {
                         self.nextNavigationBarData.backgroundImageColor = $0
                         self.nextNavigatioBarBackgroundImageColorText.text = $0.rawValue
+                    }
+                case (0, 2):
+                    colorsArray = NavigationBarData.BarFontColorArray
+                    selectedIndex = colorsArray.index(of: NavigationBarBackgroundViewColor(rawValue: nextNavigationBarFontColorText.text!)!)
+                    block = {
+                        self.nextNavigationBarData.barFontColor = $0
+                        self.nextNavigationBarFontColorText.text = $0.rawValue
                     }
                 default:
                     break

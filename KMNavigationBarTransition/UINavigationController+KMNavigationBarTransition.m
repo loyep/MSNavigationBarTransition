@@ -44,6 +44,19 @@ void MSSwizzleMethod(Class cls, SEL originalSelector, SEL swizzledSelector) {
     }
 }
 
+UINavigationBar *MSDuplicateNavigationBar(UINavigationBar *fromBar, UINavigationBar *toBar) {
+    toBar.barStyle = fromBar.barStyle;
+    if (toBar.translucent != fromBar.translucent) {
+        toBar.translucent = fromBar.translucent;
+    }
+    
+    toBar.barTintColor = fromBar.barTintColor;
+    [toBar setBackgroundImage:[fromBar backgroundImageForBarMetrics:UIBarMetricsDefault] forBarMetrics:UIBarMetricsDefault];
+    toBar.shadowImage = fromBar.shadowImage;
+    toBar.titleTextAttributes = fromBar.titleTextAttributes;
+    return toBar;
+}
+
 @interface _MSFullscreenPopGestureRecognizerDelegate : UIPercentDrivenInteractiveTransition <UIGestureRecognizerDelegate, UINavigationControllerDelegate>
 
 @property (nonatomic, weak) UINavigationController *navigationController;
@@ -52,8 +65,7 @@ void MSSwizzleMethod(Class cls, SEL originalSelector, SEL swizzledSelector) {
 
 @implementation _MSFullscreenPopGestureRecognizerDelegate
 
-- (BOOL)gestureRecognizerShouldBegin:(UIPanGestureRecognizer *)gestureRecognizer
-{
+- (BOOL)gestureRecognizerShouldBegin:(UIPanGestureRecognizer *)gestureRecognizer {
     // Ignore when no view controller is pushed into the navigation stack.
     if (self.navigationController.viewControllers.count <= 1) {
         return false;
@@ -212,15 +224,8 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
     }
     
     [self ms_adjustScrollViewContentOffsetIfNeeded];
-    UINavigationBar *bar = [[UINavigationBar alloc] init];
-    bar.barStyle = self.navigationController.navigationBar.barStyle;
-    if (bar.translucent != self.navigationController.navigationBar.translucent) {
-        bar.translucent = self.navigationController.navigationBar.translucent;
-    }
     
-    bar.barTintColor = self.navigationController.navigationBar.barTintColor;
-    [bar setBackgroundImage:[self.navigationController.navigationBar backgroundImageForBarMetrics:UIBarMetricsDefault] forBarMetrics:UIBarMetricsDefault];
-    bar.shadowImage = self.navigationController.navigationBar.shadowImage;
+    UINavigationBar *bar = MSDuplicateNavigationBar(self.navigationController.navigationBar, [[UINavigationBar alloc] init]);
     
     [self.ms_transitionNavigationBar removeFromSuperview];
     self.ms_transitionNavigationBar = bar;
@@ -388,10 +393,7 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
     [disappearingViewController ms_addTransitionNavigationBarIfNeeded];
     UIViewController *appearingViewController = self.viewControllers[self.viewControllers.count - 2];
     if (appearingViewController.ms_transitionNavigationBar) {
-        UINavigationBar *appearingNavigationBar = appearingViewController.ms_transitionNavigationBar;
-        self.navigationBar.barTintColor = appearingNavigationBar.barTintColor;
-        [self.navigationBar setBackgroundImage:[appearingNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault] forBarMetrics:UIBarMetricsDefault];
-        self.navigationBar.shadowImage = appearingNavigationBar.shadowImage;
+        MSDuplicateNavigationBar(appearingViewController.ms_transitionNavigationBar, self.navigationBar);
     }
     
     if (animated) {
@@ -410,10 +412,7 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
     [disappearingViewController ms_addTransitionNavigationBarIfNeeded];
     
     if (viewController.ms_transitionNavigationBar) {
-        UINavigationBar *appearingNavigationBar = viewController.ms_transitionNavigationBar;
-        self.navigationBar.barTintColor = appearingNavigationBar.barTintColor;
-        [self.navigationBar setBackgroundImage:[appearingNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault] forBarMetrics:UIBarMetricsDefault];
-        self.navigationBar.shadowImage = appearingNavigationBar.shadowImage;
+        MSDuplicateNavigationBar(viewController.ms_transitionNavigationBar, self.navigationBar);
     }
     
     if (animated) {
@@ -431,16 +430,17 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
     [disappearingViewController ms_addTransitionNavigationBarIfNeeded];
     UIViewController *rootViewController = self.viewControllers.firstObject;
     if (rootViewController.ms_transitionNavigationBar) {
-        UINavigationBar *appearingNavigationBar = rootViewController.ms_transitionNavigationBar;
-        self.navigationBar.barTintColor = appearingNavigationBar.barTintColor;
-        [self.navigationBar setBackgroundImage:[appearingNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault] forBarMetrics:UIBarMetricsDefault];
-        self.navigationBar.shadowImage = appearingNavigationBar.shadowImage;
+        MSDuplicateNavigationBar(rootViewController.ms_transitionNavigationBar, self.navigationBar);
     }
     if (animated) {
         disappearingViewController.ms_prefersNavigationBarBackgroundViewHidden = true;
     }
     
     return [self ms_popToRootViewControllerAnimated:animated];
+}
+
+- (void)duplicateNavigationBar:(UINavigationBar *)from toBar:(UINavigationBar *)toBar {
+    
 }
 
 - (void)ms_setViewControllers:(NSArray<UIViewController *> *)viewControllers animated:(BOOL)animated {
