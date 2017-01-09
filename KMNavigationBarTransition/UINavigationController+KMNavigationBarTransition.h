@@ -25,15 +25,16 @@
 
 @interface UINavigationController (MSNavigationBarTransition)
 
-@property (nonatomic, weak) UIViewController *ms_transitionContextToViewController;
-
 /// A view controller is able to control navigation bar's appearance by itself,
-/// rather than a global way, checking "fd_prefersNavigationBarHidden" property.
+/// rather than a global way, checking "ms_prefersNavigationBarHidden" property.
 /// Default to YES, disable it if you don't want so.
 @property (nonatomic, assign) BOOL ms_viewControllerBasedNavigationBarAppearanceEnabled;
 
 /// The gesture recognizer that actually handles interactive pop.
 @property (nonatomic, strong, readonly) UIPanGestureRecognizer *ms_fullscreenPopGestureRecognizer;
+
+/// By default this is white, it is related to issue with transparent navigationBar
+@property (nonatomic) UIColor *ms_containerViewBackgroundColor;
 
 @end
 
@@ -43,9 +44,6 @@
 /// checked when view controller based navigation bar's appearance is enabled.
 /// Default to NO, bars are more likely to show.
 @property (nonatomic, assign) BOOL ms_prefersNavigationBarHidden;
-
-// By default this is white, it is related to issue with transparent navigationBar
-- (UIColor *)ms_containerViewBackgroundColor;
 
 /// Whether the interactive pop gesture is disabled when contained in a navigation
 /// stack.

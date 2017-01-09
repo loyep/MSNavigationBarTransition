@@ -24,6 +24,8 @@
 #import "UINavigationController+KMNavigationBarTransition.h"
 #import <objc/runtime.h>
 
+typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewController, BOOL animated);
+
 void MSSwizzleMethod(Class cls, SEL originalSelector, SEL swizzledSelector) {
     Method originalMethod = class_getInstanceMethod(cls, originalSelector);
     Method swizzledMethod = class_getInstanceMethod(cls, swizzledSelector);
@@ -63,6 +65,7 @@ UINavigationBar *MSDuplicateNavigationBar(UINavigationBar *fromBar, UINavigation
 
 @end
 
+
 @implementation _MSFullscreenPopGestureRecognizerDelegate
 
 - (BOOL)gestureRecognizerShouldBegin:(UIPanGestureRecognizer *)gestureRecognizer {
@@ -93,11 +96,13 @@ UINavigationBar *MSDuplicateNavigationBar(UINavigationBar *fromBar, UINavigation
 
 @end
 
-//@interface UINavigationBar (MSNavigationBarPrivate)
-//
-//@end
 
-typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewController, BOOL animated);
+@interface UINavigationController (MSNavigationBarPrivate)
+
+@property (nonatomic, weak) UIViewController *ms_transitionContextToViewController;
+
+@end
+
 
 @interface UIViewController (MSNavigationBarPrivate)
 
@@ -108,6 +113,7 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
 @property (nonatomic, strong) UINavigationBar *ms_transitionNavigationBar;
 
 @end
+
 
 @implementation UIViewController (MSNavigationBarPrivate)
 
@@ -210,7 +216,6 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
 }
 
 - (void)ms_addTransitionNavigationBarIfNeeded {
-    
     if (!self.navigationController.ms_viewControllerBasedNavigationBarAppearanceEnabled) {
         return;
     }
@@ -226,7 +231,6 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
     [self ms_adjustScrollViewContentOffsetIfNeeded];
     
     UINavigationBar *bar = MSDuplicateNavigationBar(self.navigationController.navigationBar, [[UINavigationBar alloc] init]);
-    
     [self.ms_transitionNavigationBar removeFromSuperview];
     self.ms_transitionNavigationBar = bar;
     
@@ -264,62 +268,21 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
 
 @end
 
-@implementation UINavigationController (MSNavigationBarTransition)
-
-- (BOOL)ms_viewControllerBasedNavigationBarAppearanceEnabled {
-    NSNumber *number = objc_getAssociatedObject(self, _cmd);
-    if (number) {
-        return number.boolValue;
-    }
-    self.ms_viewControllerBasedNavigationBarAppearanceEnabled = true;
-    return true;
-}
-
-- (UIPanGestureRecognizer *)ms_fullscreenPopGestureRecognizer {
-    UIPanGestureRecognizer *panGestureRecognizer = objc_getAssociatedObject(self, _cmd);
-    
-    if (!panGestureRecognizer) {
-        panGestureRecognizer = [[UIPanGestureRecognizer alloc] init];
-        panGestureRecognizer.maximumNumberOfTouches = 1;
-        
-        objc_setAssociatedObject(self, _cmd, panGestureRecognizer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    }
-    return panGestureRecognizer;
-}
-
-- (void)setMs_viewControllerBasedNavigationBarAppearanceEnabled:(BOOL)enabled {
-    SEL key = @selector(ms_viewControllerBasedNavigationBarAppearanceEnabled);
-    objc_setAssociatedObject(self, key, @(enabled), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-}
+@implementation UINavigationController (MSNavigationBarPrivate)
 
 + (void)load {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        MSSwizzleMethod([self class],
-                        @selector(pushViewController:animated:),
-                        @selector(ms_pushViewController:animated:));
-        
-        MSSwizzleMethod([self class],
-                        @selector(popViewControllerAnimated:),
-                        @selector(ms_popViewControllerAnimated:));
-        
-        MSSwizzleMethod([self class],
-                        @selector(popToViewController:animated:),
-                        @selector(ms_popToViewController:animated:));
-        
-        MSSwizzleMethod([self class],
-                        @selector(popToRootViewControllerAnimated:),
-                        @selector(ms_popToRootViewControllerAnimated:));
-        
-        MSSwizzleMethod([self class],
-                        @selector(setViewControllers:animated:),
-                        @selector(ms_setViewControllers:animated:));
+        MSSwizzleMethod([self class], @selector(pushViewController:animated:), @selector(ms_pushViewController:animated:));
+        MSSwizzleMethod([self class], @selector(popViewControllerAnimated:), @selector(ms_popViewControllerAnimated:));
+        MSSwizzleMethod([self class], @selector(popToViewController:animated:), @selector(ms_popToViewController:animated:));
+        MSSwizzleMethod([self class], @selector(popToRootViewControllerAnimated:), @selector(ms_popToRootViewControllerAnimated:));
+        MSSwizzleMethod([self class], @selector(setViewControllers:animated:), @selector(ms_setViewControllers:animated:));
     });
 }
 
 - (_MSFullscreenPopGestureRecognizerDelegate *)ms_popGestureRecognizerDelegate {
     _MSFullscreenPopGestureRecognizerDelegate *delegate = objc_getAssociatedObject(self, _cmd);
-    
     if (!delegate) {
         delegate = [[_MSFullscreenPopGestureRecognizerDelegate alloc] init];
         delegate.navigationController = self;
@@ -329,7 +292,6 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
     }
     return delegate;
 }
-
 
 - (void)ms_pushViewController:(UIViewController *)viewController animated:(BOOL)animated {
     if (![self.interactivePopGestureRecognizer.view.gestureRecognizers containsObject:self.ms_fullscreenPopGestureRecognizer]) {
@@ -389,6 +351,7 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
     if (self.viewControllers.count < 2) {
         return [self ms_popViewControllerAnimated:animated];
     }
+    
     UIViewController *disappearingViewController = self.viewControllers.lastObject;
     [disappearingViewController ms_addTransitionNavigationBarIfNeeded];
     UIViewController *appearingViewController = self.viewControllers[self.viewControllers.count - 2];
@@ -426,6 +389,7 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
     if (self.viewControllers.count < 2) {
         return [self ms_popToRootViewControllerAnimated:animated];
     }
+    
     UIViewController *disappearingViewController = self.viewControllers.lastObject;
     [disappearingViewController ms_addTransitionNavigationBarIfNeeded];
     UIViewController *rootViewController = self.viewControllers.firstObject;
@@ -437,10 +401,6 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
     }
     
     return [self ms_popToRootViewControllerAnimated:animated];
-}
-
-- (void)duplicateNavigationBar:(UINavigationBar *)from toBar:(UINavigationBar *)toBar {
-    
 }
 
 - (void)ms_setViewControllers:(NSArray<UIViewController *> *)viewControllers animated:(BOOL)animated {
@@ -464,6 +424,48 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
 
 @end
 
+@implementation UINavigationController (MSNavigationBarTransition)
+
+- (UIColor *)ms_containerViewBackgroundColor {
+    UIColor *containerColor = objc_getAssociatedObject(self, _cmd);
+    if (!containerColor) {
+        containerColor = [UIColor whiteColor];
+        objc_setAssociatedObject(self, _cmd, containerColor, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    return containerColor;
+}
+
+- (void)setMs_containerViewBackgroundColor:(UIColor *)ms_containerViewBackgroundColor {
+    objc_setAssociatedObject(self, @selector(ms_containerViewBackgroundColor), ms_containerViewBackgroundColor, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+- (UIPanGestureRecognizer *)ms_fullscreenPopGestureRecognizer {
+    UIPanGestureRecognizer *panGestureRecognizer = objc_getAssociatedObject(self, _cmd);
+    
+    if (!panGestureRecognizer) {
+        panGestureRecognizer = [[UIPanGestureRecognizer alloc] init];
+        panGestureRecognizer.maximumNumberOfTouches = 1;
+        
+        objc_setAssociatedObject(self, _cmd, panGestureRecognizer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    return panGestureRecognizer;
+}
+
+- (BOOL)ms_viewControllerBasedNavigationBarAppearanceEnabled {
+    NSNumber *number = objc_getAssociatedObject(self, _cmd);
+    if (number) {
+        return number.boolValue;
+    }
+    self.ms_viewControllerBasedNavigationBarAppearanceEnabled = true;
+    return true;
+}
+
+- (void)setMs_viewControllerBasedNavigationBarAppearanceEnabled:(BOOL)enabled {
+    SEL key = @selector(ms_viewControllerBasedNavigationBarAppearanceEnabled);
+    objc_setAssociatedObject(self, key, @(enabled), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+}
+
+@end
 
 @implementation UIViewController (MSNavigationBarTransition)
 
@@ -473,11 +475,6 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
 
 - (BOOL)ms_interactivePopDisabled {
     return [objc_getAssociatedObject(self, _cmd) boolValue];
-}
-
-// By default this is white, it is related to issue with transparent navigationBar
-- (UIColor *)ms_containerViewBackgroundColor {
-    return [UIColor whiteColor];
 }
 
 - (BOOL)ms_prefersNavigationBarHidden {
