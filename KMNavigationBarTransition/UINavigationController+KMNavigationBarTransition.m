@@ -95,10 +95,6 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
 
 @property (nonatomic, strong) UINavigationBar *ms_transitionNavigationBar;
 
-- (void)ms_addTransitionNavigationBarIfNeeded;
-
-- (BOOL)ms_isEqual:(UIViewController *)object;
-
 @end
 
 @implementation UIViewController (MSNavigationBarPrivate)
@@ -118,30 +114,6 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
                         @selector(viewDidAppear:),
                         @selector(ms_viewDidAppear:));
     });
-}
-
-- (BOOL)ms_isEqual:(UIViewController *)object {
-    return self.navigationController.navigationBar.translucent;
-    if (self == object) {
-        return true;
-    }
-    
-    if (object.ms_transitionNavigationBar == self.ms_transitionNavigationBar) {
-        return true;
-    }
-    
-    if (self.ms_transitionNavigationBar && object.ms_transitionNavigationBar) {
-        UIImage *appearImage = [self.ms_transitionNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault];
-        UIImage *disappearImage = [object.ms_transitionNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault];
-        NSData *appearData = UIImagePNGRepresentation(appearImage);
-        NSData *disappearData = UIImagePNGRepresentation(disappearImage);
-        if ((appearData && disappearData) || [appearData isEqualToData:disappearData]) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-    return !self.navigationController.navigationBar.translucent;
 }
 
 - (BOOL)ms_prefersNavigationBarBackgroundViewHidden {
@@ -377,15 +349,12 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
     }
     
     __weak typeof(self) weakSelf = self;
-    __weak typeof(disappearingViewController) weakDisappear = disappearingViewController;
     _MSViewControllerWillAppearInjectBlock block = ^(UIViewController *viewController, BOOL animated) {
         __strong typeof(weakSelf) strongSelf = weakSelf;
         if (strongSelf) {
             [strongSelf setNavigationBarHidden:viewController.ms_prefersNavigationBarHidden animated:animated];
-//            [[viewController ms_navigationBarBackgroundView] setHidden:viewController.ms_prefersNavigationBarHidden];
-            __strong typeof(weakDisappear) strongDisappear = weakDisappear;
-            if ([viewController ms_isEqual:strongDisappear]) {
-//                [[viewController ms_navigationBarBackgroundView] setHidden:viewController.ms_prefersNavigationBarHidden];
+            if ([viewController.ms_transitionNavigationBar isTranslucent]) {
+                [[viewController ms_navigationBarBackgroundView] setHidden:viewController.ms_prefersNavigationBarHidden];
             }
         }
     };
