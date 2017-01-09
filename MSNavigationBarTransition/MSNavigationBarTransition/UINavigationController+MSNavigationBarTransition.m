@@ -1,7 +1,7 @@
 //
-//  UINavigationController+KMNavigationBarTransition.m
+//  UINavigationController+MSNavigationBarTransition.m
 //
-//  Copyright (c) 2016 Zhouqi Mo (https://github.com/MoZhouqi)
+//  Copyright (c) 2016 Maxwell Eony 
 //
 //  Permission is hereby granted, free of charge, to any person obtaining a copy
 //  of this software and associated documentation files (the "Software"), to deal
@@ -21,7 +21,7 @@
 //  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 //  THE SOFTWARE.
 
-#import "UINavigationController+KMNavigationBarTransition.h"
+#import "UINavigationController+MSNavigationBarTransition.h"
 #import <objc/runtime.h>
 
 typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewController, BOOL animated);

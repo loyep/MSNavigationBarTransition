@@ -1,9 +1,9 @@
 //
 //  MainViewController.swift
-//  KMNavigationBarTransition
+//  MSNavigationBarTransition
 //
-//  Created by Zhouqi Mo on 1/1/16.
-//  Copyright © 2016 Zhouqi Mo. All rights reserved.
+//  Created by eony on 2016/1/9.
+//  Copyright © 2016年 Maxwell Eony. All rights reserved.
 //
 
 import UIKit
