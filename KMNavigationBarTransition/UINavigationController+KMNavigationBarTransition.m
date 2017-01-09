@@ -121,7 +121,7 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
 }
 
 - (BOOL)ms_isEqual:(UIViewController *)object {
-    return false;
+    return self.navigationController.navigationBar.translucent;
     if (self == object) {
         return true;
     }
@@ -141,7 +141,7 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
             return false;
         }
     }
-    return false;
+    return !self.navigationController.navigationBar.translucent;
 }
 
 - (BOOL)ms_prefersNavigationBarBackgroundViewHidden {
@@ -385,7 +385,7 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
 //            [[viewController ms_navigationBarBackgroundView] setHidden:viewController.ms_prefersNavigationBarHidden];
             __strong typeof(weakDisappear) strongDisappear = weakDisappear;
             if ([viewController ms_isEqual:strongDisappear]) {
-                [[viewController ms_navigationBarBackgroundView] setHidden:viewController.ms_prefersNavigationBarHidden];
+//                [[viewController ms_navigationBarBackgroundView] setHidden:viewController.ms_prefersNavigationBarHidden];
             }
         }
     };
