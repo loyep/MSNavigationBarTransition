@@ -97,6 +97,8 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
 
 - (void)ms_addTransitionNavigationBarIfNeeded;
 
+- (BOOL)ms_isEqual:(UIViewController *)object;
+
 @end
 
 @implementation UIViewController (MSNavigationBarPrivate)
@@ -116,6 +118,30 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
                         @selector(viewDidAppear:),
                         @selector(ms_viewDidAppear:));
     });
+}
+
+- (BOOL)ms_isEqual:(UIViewController *)object {
+    return false;
+    if (self == object) {
+        return true;
+    }
+    
+    if (object.ms_transitionNavigationBar == self.ms_transitionNavigationBar) {
+        return true;
+    }
+    
+    if (self.ms_transitionNavigationBar && object.ms_transitionNavigationBar) {
+        UIImage *appearImage = [self.ms_transitionNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault];
+        UIImage *disappearImage = [object.ms_transitionNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault];
+        NSData *appearData = UIImagePNGRepresentation(appearImage);
+        NSData *disappearData = UIImagePNGRepresentation(disappearImage);
+        if ((appearData && disappearData) || [appearData isEqualToData:disappearData]) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+    return false;
 }
 
 - (BOOL)ms_prefersNavigationBarBackgroundViewHidden {
@@ -358,7 +384,7 @@ typedef void (^_MSViewControllerWillAppearInjectBlock)(UIViewController *viewCon
             [strongSelf setNavigationBarHidden:viewController.ms_prefersNavigationBarHidden animated:animated];
 //            [[viewController ms_navigationBarBackgroundView] setHidden:viewController.ms_prefersNavigationBarHidden];
             __strong typeof(weakDisappear) strongDisappear = weakDisappear;
-            if (strongDisappear.ms_transitionNavigationBar == viewController.ms_transitionNavigationBar || !(strongDisappear.ms_transitionNavigationBar && viewController.ms_transitionNavigationBar && [UIImagePNGRepresentation([viewController.ms_transitionNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault]) isEqualToData:UIImagePNGRepresentation([strongDisappear.ms_transitionNavigationBar backgroundImageForBarMetrics:UIBarMetricsDefault])])) {
+            if ([viewController ms_isEqual:strongDisappear]) {
                 [[viewController ms_navigationBarBackgroundView] setHidden:viewController.ms_prefersNavigationBarHidden];
             }
         }
