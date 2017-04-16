@@ -57,6 +57,37 @@ class MainViewController: UITableViewController {
         title = "Title " + "\(navigationController!.viewControllers.count)"
     }
     
+    override func scrollViewDidScroll(_ scrollView: UIScrollView) {
+                print(scrollView)
+        
+                let contentOffsetY = scrollView.contentOffset.y
+                let showNavBarOffsetY = 2 - topLayoutGuide.length
+        
+        
+                //navigationBar alpha
+                if contentOffsetY > showNavBarOffsetY  {
+                    var navAlpha = (contentOffsetY - (showNavBarOffsetY)) / 40.0
+                    if navAlpha > 1 {
+                        navAlpha = 1
+                    }
+                    ms_navigationBarAlpha = navAlpha
+                    if navAlpha > 0.8 {
+//                        navBarTintColor = UIColor.red
+//                        statusBarShouldLight = false
+        
+                    }else{
+//                        navBarTintColor = UIColor.white
+//                        statusBarShouldLight = true
+                    }
+                }else{
+                    ms_navigationBarAlpha = 0
+//                    navBarTintColor = UIColor.white
+//                    statusBarShouldLight = true
+                }
+                setNeedsStatusBarAppearanceUpdate()
+
+    }
+    
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
     }
