@@ -49,4 +49,6 @@
 /// stack.
 @property (nonatomic, assign) BOOL ms_interactivePopDisabled;
 
+@property (nonatomic, assign) CGFloat ms_navigationBarAlpha;
+
 @end

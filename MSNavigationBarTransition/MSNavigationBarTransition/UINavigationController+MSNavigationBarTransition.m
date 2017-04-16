@@ -322,6 +322,7 @@ UINavigationBar *MSDuplicateNavigationBar(UINavigationBar *fromBar, UINavigation
             [strongSelf setNavigationBarHidden:viewController.ms_prefersNavigationBarHidden animated:animated];
             if ([viewController.ms_transitionNavigationBar isTranslucent]) {
                 [[viewController ms_navigationBarBackgroundView] setHidden:viewController.ms_prefersNavigationBarHidden];
+                [viewController ms_navigationBarBackgroundView].alpha = viewController.ms_navigationBarAlpha;
             }
         }
     };
@@ -468,6 +469,22 @@ UINavigationBar *MSDuplicateNavigationBar(UINavigationBar *fromBar, UINavigation
 @end
 
 @implementation UIViewController (MSNavigationBarTransition)
+
+- (void)setMs_navigationBarAlpha:(CGFloat)ms_navigationBarAlpha {
+    objc_setAssociatedObject(self, @selector(ms_navigationBarAlpha), @(ms_navigationBarAlpha), OBJC_ASSOCIATION_COPY_NONATOMIC);
+    if ([self ms_navigationBarBackgroundView]) {
+        [self ms_navigationBarBackgroundView].alpha = ms_navigationBarAlpha;
+    }
+}
+
+- (CGFloat)ms_navigationBarAlpha {
+    NSNumber *alpha = objc_getAssociatedObject(self, _cmd);
+    if (!alpha) {
+        alpha = @(1.0f);
+        objc_setAssociatedObject(self, _cmd, alpha, OBJC_ASSOCIATION_COPY_NONATOMIC);
+    }
+    return alpha.floatValue;
+}
 
 - (void)setMs_interactivePopDisabled:(BOOL)disabled {
     objc_setAssociatedObject(self, @selector(ms_interactivePopDisabled), @(disabled), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
